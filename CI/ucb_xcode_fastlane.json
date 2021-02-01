@@ -1,0 +1,7 @@
+{
+    "fastfile": "CI/fastlane",
+    "lanes": {
+        "pre_build": "tg_extension_profile",
+        "post_build": ""
+    }
+}

@@ -1,0 +1,98 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+lane :tg_extension_profile do |options|
+  profile_path = 'AdHoc_com.alexanderwinn.TerraGenesis.ServiceExtension.mobileprovision'
+  FastlaneCore::ProvisioningProfile.install(profile_path)
+  update_project_provisioning(
+      xcodeproj: '../../Build/TG_release/Unity-iPhone.xcodeproj',
+      target_filter: 'NotificationService',
+      profile: profile_path
+  )
+  disable_automatic_code_signing(path: 'Unity-iPhone.xcodeproj')
+end
+
+lane :test_path do #|options|
+  #do 
+  path = Dir.pwd
+  puts path
+
+  build_dir = ENV["build_directory"]
+  puts build_dir
+
+  bundle_id = ENV["bundle_id"]
+  puts build_dir
+
+  export_method = ENV["apple_export_method"]
+  puts export_method
+
+  proj_path = ENV["xcode_project_path"]
+  puts proj_path
+
+  #puts "latest_build_number #{latest_build_number}"
+  #file = File.open("#{path}/#{filename}", 'r')
+end
+
+lane :tg_ios_setup do
+  build_dir = ENV["build_directory"]
+  bundle_id = ENV["bundle_id"]
+  distro_type = ENV["apple_distro_type"]
+  export_method = ENV["apple_export_method"]
+  proj_path = ENV["xcode_project_path"]
+
+  sync_code_signing(
+    app_identifier: [bundle_id, "#{bundle_id}.ServiceExtension"],
+    git_url: "git@github.com:TiltingPoint/tiltingpoint-certificates.git", 
+    git_branch: "master",
+    type: distro_type,
+    force_for_new_devices: true
+  )
+
+  disable_automatic_code_signing(
+    path: proj_path
+  )
+
+  proj_profile=ENV["sigh_#{bundle_id}_#{distro_type}_profile-path"]
+  extn_profile=ENV["sigh_#{bundle_id}.ServiceExtension_#{distro_type}_profile-path"]
+
+  codesign_id = `security cms -D -i \"#{proj_profile}\" \
+    | pcregrep -oM "(?<=<data>).+(?=<\/data>)" \
+    | base64 -D \
+    | openssl x509 -noout -inform DER -subject \
+    | pcregrep -o2 "CN.?=(\s|)(.+?)(,|\/)" \
+    | tr -d "\n"`
+
+  proj_profile_name = `security cms -D -i \"#{proj_profile}\" \
+    | pcregrep -M -o2 "<key>Name<\/key>(.|\n).+<string>(.+?)<\/string>" \
+    | tr -d "\n"`
+
+  ext_profile_name = `security cms -D -i \"#{extn_profile}\" \
+    | pcregrep -M -o2 "<key>Name<\/key>(.|\n).+<string>(.+?)<\/string>" \
+    | tr -d "\n"`
+
+  update_project_provisioning(
+    xcodeproj: proj_path,
+    profile: proj_profile,
+    target_filter: "Unity-iPhone",
+    build_configuration: "Release"
+  )
+
+  update_project_provisioning(
+    xcodeproj: proj_path,
+    profile: extn_profile,
+    target_filter: "NotificationService",
+    build_configuration: "Release"
+  )
+end
